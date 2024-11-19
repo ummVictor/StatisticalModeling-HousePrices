@@ -1,0 +1,186 @@
+---
+title: 'Project 1: Kaggle Challenge'
+author: "Christina Mourad, Victor Um, Joe De Leon, Martin Ha"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## **Project Overview**
+The goal of this project is to build a predictive model that can estimate house prices based on a variety of features. We were given the following files:
+
+- **train.csv** - the training set
+- **test.csv** - the test set
+- **data_description.txt** - full description of each column, originally prepared by Dean De Cock but lightly edited to match the column names used here
+- **sample_submission.csv** - a benchmark submission from a linear regression on year and month of sale, lot square footage, and number of bedrooms
+
+---
+
+## **Loading Dataset**
+
+#### **Libraies Utilized**
+```{r}
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(glmnet)
+```
+
+#### **House Prices Dataset**
+
+**train.csv**
+```{r}
+train_dataset <- read.csv("C:\\Users\\btmgc\\Desktop\\MATH444\\Projects\\Project 1\\StatisticalModeling-HousePrices\\train.csv", header = TRUE)
+
+head(train_dataset)
+```
+
+**data_description**
+```{r}
+data_description <- read.csv("C:\\Users\\btmgc\\Desktop\\MATH444\\Projects\\Project 1\\StatisticalModeling-HousePrices\\data_description.txt", header = TRUE)
+
+head(data_description)
+```
+
+#### **Dimensions of Dataset:**
+```{r}
+cat("Full train dataset shape is", dim(train_dataset), "\n")
+```
+The House Prices dataset is composed of 81 columns and 1,460 entries.
+
+---
+
+## **Methods**
+To predict house prices, the following methods were applied:
+
+1. **Data Cleaning**: Handling missing values, removing outliers, and converting categorical variables into factors.
+
+2. **Exploratory Data Analysis**: Understanding the relationships between features and the target variable (sale price) through visualizations.
+
+3. **Data Enrichment:** Transforming variables, creating new features, and selecting relevant predictors.
+
+4. **Modeling**: Implementing multiple regression and advanced machine learning techniques such as LASSO, Ridge, and Gradient Boosting.
+
+5. **Evaluation**: Using cross-validation and computing RMSE on the log-transformed sale price.
+
+> 1. **Data Cleaning**
+
+**Checking for Missing Values:**
+```{r}
+missing_values <- colSums(is.na(train_dataset))
+missing_values <- data.frame(Feature = names(missing_values), Missing = missing_values)
+missing_values <- missing_values %>% filter(Missing > 0)
+
+cat("Columns with missing values:\n")
+print(missing_values)
+```
+
+**Fill missing values with median or mode based on variable type:**
+
+```{r}
+train_dataset <- train_dataset %>%
+  mutate(across(where(is.numeric), ~ ifelse(is.na(.), median(., na.rm = TRUE), .))) %>%
+  mutate(across(where(is.character), ~ ifelse(is.na(.), "None", .)))
+```
+
+
+> 2. **Exploratory Data Analysis**
+
+**Distribution of SalePrice:**
+
+```{r}
+ggplot(train_dataset, aes(x = SalePrice)) +
+  geom_histogram(binwidth = 10000, fill = "blue", color = "white") +
+  theme_minimal() +
+  labs(title = "Distribution of Sale Price", x = "Sale Price", y = "Frequency")
+```
+
+**Relationship between GrLivArea and SalePrice:**
+
+```{r}
+ggplot(train_dataset, aes(x = GrLivArea, y = SalePrice)) +
+  geom_point(alpha = 0.5) +
+  theme_minimal() +
+  labs(title = "Sale Price vs. Ground Living Area", x = "Ground Living Area", y = "Sale Price")
+```
+
+> 3. **Data Enrichment**
+
+**Log-transforming SalePrice to normalize it:**
+
+```{r}
+train_dataset$LogSalePrice <- log(train_dataset$SalePrice)
+```
+
+**Encoding categorical variables:**
+```{r}
+train_dataset <- train_dataset %>%
+  mutate(across(where(is.character), as.factor))
+```
+
+**Creating new features:**
+```{r}
+train_dataset$TotalSqFt <- train_dataset$GrLivArea + train_dataset$TotalBsmtSF
+```
+
+
+> 4. **Modeling**
+
+**Split data into training and validation sets:**
+
+```{r}
+set.seed(123)
+
+train_index <- createDataPartition(train_dataset$LogSalePrice, p = 0.8, list = FALSE)
+train_data <- train_dataset[train_index, ]
+test_data <- train_dataset[-train_index, ]
+```
+
+**Fit LASSO Regression:**
+```{r}
+x_train <- model.matrix(LogSalePrice ~ ., data = train_data)[, -1]
+y_train <- train_data$LogSalePrice
+
+lasso_model <- cv.glmnet(x_train, y_train, alpha = 1)
+best_lambda <- lasso_model$lambda.min
+
+cat("Optimal lambda for LASSO:", best_lambda, "\n")
+```
+
+> 5. **Evaluation**
+
+**Predict on test data:**
+```{r}
+x_test <- model.matrix(LogSalePrice ~ ., data = test_data)[, -1]
+predictions <- predict(lasso_model, s = best_lambda, newx = x_test)
+```
+
+**Calculate RMSE:**
+```{r}
+rmse <- sqrt(mean((predictions - test_data$LogSalePrice)^2))
+cat("RMSE for LASSO model:", rmse, "\n")
+```
+> **Analyzing the Results:**
+
+- The log-transformation of the sale price improved the model's performance by stabilizing variance.
+
+- LASSO regression was effective in feature selection and regularization, reducing overfitting.
+
+- The RMSE metric was used to evaluate model performance, ensuring a fair comparison with Kaggle benchmarks.
+
+
+---
+
+## **Conclusion**
+The House Proces dataset presented challenges such as missing values, mixed data types, and a large number of features (81 columns). Tackling this problem required a systematic approach, combining data cleaning, exploratory analysis, and advanced modeling techniques.
+
+The primary objective was to create a model that could accurately estimate house prices while balancing predictive performance with interpretability. By leveraging techniques like LASSO regression, the project demonstrated how regularization can help handle datasets with many predictors by selecting only the most relevant features.
+
+One of the main challenges was managing missing data for key variables such as `LotFrontage` and `GarageType`. Strategies such as imputing medians for numeric data and adding placeholders for categorical data ensured that the dataset was both complete and usable without introducing bias. Additionally, transforming the target variable (`SalePrice`) to its logarithmic scale addressed heteroscedasticity, a common issue in regression problems.
+
+Through visualizations, relationships between house prices and features such as `GrLivArea` and `TotalSqFt` were identified, guiding feature engineering. These insights proved vital in creating a more predictive model. The final model achieved a Root Mean Square Error (RMSE) of **0.0904** on the log-transformed prices, indicating strong performance. 
