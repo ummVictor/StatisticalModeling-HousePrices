@@ -4,11 +4,12 @@ author: "Christina Mourad, Victor Um, Joe De Leon, Martin Ha"
 date: "`r Sys.Date()`"
 output:
   pdf_document: default
-  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=4, fig.height=3)
+
 ```
 
 ## **Project Overview**
@@ -24,7 +25,7 @@ The goal of this project is to build a predictive model that can estimate house 
 ## **Loading Dataset**
 
 #### **Libraies Utilized**
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(dplyr)
 library(ggplot2)
 library(caret)
@@ -37,7 +38,7 @@ library(glmnet)
 ```{r}
 train_dataset <- read.csv("C:\\Users\\btmgc\\Desktop\\MATH444\\Projects\\Project 1\\StatisticalModeling-HousePrices\\train.csv", header = TRUE)
 
-head(train_dataset)
+head(train_dataset, n=2)
 ```
 
 **data_description**
